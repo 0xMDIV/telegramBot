@@ -2,6 +2,7 @@ package admin
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"telegramBot/pkg/bot"
@@ -47,45 +48,52 @@ func (h *BanHandler) handleBan(b *bot.Bot, update tgbotapi.Update, isTemporary b
 	}
 
 	if !isAdmin {
-		b.SendMessage(update.Message.Chat.ID, "❌ Du hast keine Berechtigung für diesen Befehl.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
 
-	targetUser, err := extractTargetUser(update.Message)
+	targetUser, reason, err := extractTargetUserAndReason(b, update.Message)
 	if err != nil {
-		b.SendMessage(update.Message.Chat.ID, "❌ "+err.Error())
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, ""+err.Error(), 5)
 		return nil
 	}
 
 	if targetUser.ID == update.Message.From.ID {
-		b.SendMessage(update.Message.Chat.ID, "❌ Du kannst dich nicht selbst bannen.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du kannst dich nicht selbst bannen.", 5)
 		return nil
 	}
 
-	targetIsAdmin, err := b.IsUserAdmin(update.Message.Chat.ID, targetUser.ID)
-	if err != nil {
-		return fmt.Errorf("failed to check target admin status: %w", err)
-	}
+	if targetUser.ID != 0 {
+		targetIsAdmin, err := b.IsUserAdmin(update.Message.Chat.ID, targetUser.ID)
+		if err != nil {
+			_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Fehler beim Überprüfen der User-Berechtigung.")
+			return fmt.Errorf("failed to check target admin status: %w", err)
+		}
 
-	if targetIsAdmin {
-		b.SendMessage(update.Message.Chat.ID, "❌ Admins können nicht gebannt werden.")
-		return nil
+		if targetIsAdmin {
+			_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Admins können nicht gebannt werden.")
+			return nil
+		}
 	}
 
 	if err := b.BanChatMember(update.Message.Chat.ID, targetUser.ID); err != nil {
-		b.SendMessage(update.Message.Chat.ID, "❌ Fehler beim Bannen des Users.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Fehler beim Bannen des Users. Überprüfe die Bot-Rechte.")
 		return fmt.Errorf("failed to ban user: %w", err)
 	}
 
 	successMsg := fmt.Sprintf(
-		"🔨 **User gebannt**\n\n"+
-			"👤 **User:** %s\n"+
-			"👮 **Admin:** %s",
+		"User gebannt\n\n"+
+			"User: %s\n"+
+			"Admin: %s",
 		bot.FormatUserName(targetUser),
 		bot.GetUserMention(update.Message.From),
 	)
 
-	b.SendMessage(update.Message.Chat.ID, successMsg)
+	if reason != "" {
+		successMsg += fmt.Sprintf("\nGrund: %s", reason)
+	}
+
+	_, _ = b.SendTemporaryMessageAndDeleteCommand(update.Message.Chat.ID, successMsg, update.Message.MessageID, 5)
 	return nil
 }
 
@@ -100,33 +108,36 @@ func (h *KickHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	if !isAdmin {
-		b.SendMessage(update.Message.Chat.ID, "❌ Du hast keine Berechtigung für diesen Befehl.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
 
-	targetUser, err := extractTargetUser(update.Message)
+	targetUser, reason, err := extractTargetUserAndReason(b, update.Message)
 	if err != nil {
-		b.SendMessage(update.Message.Chat.ID, "❌ "+err.Error())
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, ""+err.Error(), 5)
 		return nil
 	}
 
 	if targetUser.ID == update.Message.From.ID {
-		b.SendMessage(update.Message.Chat.ID, "❌ Du kannst dich nicht selbst kicken.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du kannst dich nicht selbst kicken.")
 		return nil
 	}
 
-	targetIsAdmin, err := b.IsUserAdmin(update.Message.Chat.ID, targetUser.ID)
-	if err != nil {
-		return fmt.Errorf("failed to check target admin status: %w", err)
-	}
+	if targetUser.ID != 0 {
+		targetIsAdmin, err := b.IsUserAdmin(update.Message.Chat.ID, targetUser.ID)
+		if err != nil {
+			_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Fehler beim Überprüfen der User-Berechtigung.")
+			return fmt.Errorf("failed to check target admin status: %w", err)
+		}
 
-	if targetIsAdmin {
-		b.SendMessage(update.Message.Chat.ID, "❌ Admins können nicht gekickt werden.")
-		return nil
+		if targetIsAdmin {
+			_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Admins können nicht gekickt werden.")
+			return nil
+		}
 	}
 
 	if err := b.KickChatMember(update.Message.Chat.ID, targetUser.ID); err != nil {
-		b.SendMessage(update.Message.Chat.ID, "❌ Fehler beim Kicken des Users.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Fehler beim Kicken des Users. Überprüfe die Bot-Rechte.")
 		return fmt.Errorf("failed to kick user: %w", err)
 	}
 
@@ -135,14 +146,18 @@ func (h *KickHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	successMsg := fmt.Sprintf(
-		"👢 **User gekickt**\n\n"+
-			"👤 **User:** %s\n"+
-			"👮 **Admin:** %s",
+		"User gekickt\n\n"+
+			"User: %s\n"+
+			"Admin: %s",
 		bot.FormatUserName(targetUser),
 		bot.GetUserMention(update.Message.From),
 	)
 
-	b.SendMessage(update.Message.Chat.ID, successMsg)
+	if reason != "" {
+		successMsg += fmt.Sprintf("\nGrund: %s", reason)
+	}
+
+	_, _ = b.SendTemporaryMessageAndDeleteCommand(update.Message.Chat.ID, successMsg, update.Message.MessageID, 5)
 	return nil
 }
 
@@ -157,49 +172,18 @@ func (h *MuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	if !isAdmin {
-		b.SendMessage(update.Message.Chat.ID, "❌ Du hast keine Berechtigung für diesen Befehl.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
 
-	args := strings.Fields(update.Message.CommandArguments())
-	if len(args) < 1 {
-		b.SendMessage(update.Message.Chat.ID, "❌ Verwendung: /mute @username [Stunden]\nBeispiel: /mute @user 2")
+	targetUser, duration, reason, err := h.parseTargetUserDurationAndReason(b, update.Message)
+	if err != nil {
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, ""+err.Error(), 5)
 		return nil
-	}
-
-	var targetUser *tgbotapi.User
-	var duration int
-
-	if update.Message.ReplyToMessage != nil {
-		targetUser = update.Message.ReplyToMessage.From
-		if len(args) > 0 {
-			duration, err = bot.ParseDuration(args[0])
-			if err != nil {
-				duration = b.GetConfig().Admin.DefaultMuteHours
-			}
-		} else {
-			duration = b.GetConfig().Admin.DefaultMuteHours
-		}
-	} else {
-		targetUser, err = parseUserFromArgs(args[0])
-		if err != nil {
-			b.SendMessage(update.Message.Chat.ID, "❌ "+err.Error())
-			return nil
-		}
-
-		if len(args) > 1 {
-			duration, err = bot.ParseDuration(args[1])
-			if err != nil {
-				b.SendMessage(update.Message.Chat.ID, "❌ "+err.Error())
-				return nil
-			}
-		} else {
-			duration = b.GetConfig().Admin.DefaultMuteHours
-		}
 	}
 
 	if targetUser.ID == update.Message.From.ID {
-		b.SendMessage(update.Message.Chat.ID, "❌ Du kannst dich nicht selbst muten.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du kannst dich nicht selbst muten.")
 		return nil
 	}
 
@@ -209,7 +193,7 @@ func (h *MuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	if targetIsAdmin {
-		b.SendMessage(update.Message.Chat.ID, "❌ Admins können nicht gemutet werden.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Admins können nicht gemutet werden.")
 		return nil
 	}
 
@@ -230,30 +214,34 @@ func (h *MuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 		CanSendMediaMessages:  false,
 		CanSendPolls:          false,
 		CanSendOtherMessages:  false,
-		CanAddWebPagePreviates: false,
+		CanAddWebPagePreviews: false,
 		CanChangeInfo:         false,
 		CanInviteUsers:        false,
 		CanPinMessages:        false,
 	}
 
 	if err := b.RestrictChatMember(update.Message.Chat.ID, targetUser.ID, permissions); err != nil {
-		b.SendMessage(update.Message.Chat.ID, "❌ Fehler beim Muten des Users.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Fehler beim Muten des Users.")
 		return fmt.Errorf("failed to mute user: %w", err)
 	}
 
 	successMsg := fmt.Sprintf(
-		"🔇 **User gemutet**\n\n"+
-			"👤 **User:** %s\n"+
-			"⏰ **Dauer:** %d Stunden\n"+
-			"📅 **Bis:** %s\n"+
-			"👮 **Admin:** %s",
+		"User gemutet\n\n"+
+			"User: %s\n"+
+			"Dauer: %d Stunden\n"+
+			"Bis: %s\n"+
+			"Admin: %s",
 		bot.FormatUserName(targetUser),
 		duration,
 		muteUntil.Format("02.01.2006 15:04"),
 		bot.GetUserMention(update.Message.From),
 	)
 
-	b.SendMessage(update.Message.Chat.ID, successMsg)
+	if reason != "" {
+		successMsg += fmt.Sprintf("\nGrund: %s", reason)
+	}
+
+	_, _ = b.SendTemporaryMessageAndDeleteCommand(update.Message.Chat.ID, successMsg, update.Message.MessageID, 5)
 
 	go func() {
 		time.Sleep(time.Duration(duration) * time.Hour)
@@ -261,6 +249,72 @@ func (h *MuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}()
 
 	return nil
+}
+
+func (h *MuteHandler) parseTargetUserDurationAndReason(b *bot.Bot, message *tgbotapi.Message) (*tgbotapi.User, int, string, error) {
+	args := strings.Fields(message.CommandArguments())
+	var targetUser *tgbotapi.User
+	var duration int
+	var reason string
+	var err error
+
+	if message.ReplyToMessage != nil && message.ReplyToMessage.From != nil {
+		// Reply-to-Message: /mute [Stunden] [Grund]
+		targetUser = message.ReplyToMessage.From
+
+		if len(args) > 0 {
+			// Versuche ersten Arg als Dauer zu parsen
+			duration, err = bot.ParseDuration(args[0])
+			if err != nil {
+				// Wenn nicht parsebar, ist es Teil des Grunds
+				duration = b.GetConfig().Admin.DefaultMuteHours
+				reason = strings.Join(args, " ")
+			} else {
+				// Dauer erfolgreich geparst, Rest ist Grund
+				if len(args) > 1 {
+					reason = strings.Join(args[1:], " ")
+				}
+			}
+		} else {
+			duration = b.GetConfig().Admin.DefaultMuteHours
+		}
+	} else {
+		// Normal: /mute @user [Stunden] [Grund]
+		if len(args) < 1 {
+			return nil, 0, "", fmt.Errorf("Verwendung: /mute @username [Stunden] [Grund] oder als Antwort auf eine Nachricht")
+		}
+
+		targetUser, err = parseUserFromArgs(b, message.Chat.ID, args[0])
+		if err != nil {
+			return nil, 0, "", err
+		}
+
+		if len(args) > 1 {
+			// Versuche zweiten Arg als Dauer zu parsen
+			duration, err = bot.ParseDuration(args[1])
+			if err != nil {
+				// Wenn nicht parsebar, ist alles ab Arg 1 der Grund
+				duration = b.GetConfig().Admin.DefaultMuteHours
+				reason = strings.Join(args[1:], " ")
+			} else {
+				// Dauer erfolgreich geparst, Rest ist Grund
+				if len(args) > 2 {
+					reason = strings.Join(args[2:], " ")
+				}
+			}
+		} else {
+			duration = b.GetConfig().Admin.DefaultMuteHours
+		}
+	}
+
+	if targetUser.ID == 0 {
+		return nil, 0, "", fmt.Errorf("User-ID ist 0 in Reply-Nachricht")
+	}
+	if targetUser.IsBot {
+		return nil, 0, "", fmt.Errorf("Kann keine Aktionen auf Bots ausführen")
+	}
+
+	return targetUser, duration, reason, nil
 }
 
 func (h *MuteHandler) unmuteUser(b *bot.Bot, chatID, userID int64) {
@@ -295,97 +349,164 @@ func (h *DeleteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	if !isAdmin {
-		b.SendMessage(update.Message.Chat.ID, "❌ Du hast keine Berechtigung für diesen Befehl.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
 
 	args := update.Message.CommandArguments()
 	if args == "" {
-		b.SendMessage(update.Message.Chat.ID, "❌ Verwendung: /del [Anzahl]\nBeispiel: /del 10")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Verwendung: /del [Anzahl]\nBeispiel: /del 10")
 		return nil
 	}
 
 	count, err := strconv.Atoi(strings.TrimSpace(args))
 	if err != nil {
-		b.SendMessage(update.Message.Chat.ID, "❌ Ungültige Anzahl. Bitte gib eine Zahl ein.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Ungültige Anzahl. Bitte gib eine Zahl ein.")
 		return nil
 	}
 
 	if count < 1 || count > b.GetConfig().Admin.MaxDeleteMessages {
-		b.SendMessage(update.Message.Chat.ID, fmt.Sprintf("❌ Anzahl muss zwischen 1 und %d liegen.", b.GetConfig().Admin.MaxDeleteMessages))
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, fmt.Sprintf("Anzahl muss zwischen 1 und %d liegen.", b.GetConfig().Admin.MaxDeleteMessages))
 		return nil
 	}
 
 	startMessageID := update.Message.MessageID
 	deletedCount := 0
 
-	for i := 0; i < count; i++ {
-		messageID := startMessageID - i - 1
-		if messageID <= 0 {
-			break
+	// Erweiterte Löschstrategie: Versuche einen größeren Bereich um aktuelle Nachricht
+	// Da Message IDs nicht sequenziell sind, probieren wir verschiedene Bereiche
+	maxTries := count * 3 // Erweitere Suchbereich
+
+	for i := 1; i <= maxTries && deletedCount < count; i++ {
+		// Versuche Nachrichten in beide Richtungen
+		candidates := []int{
+			startMessageID - i, // Rückwärts
+			startMessageID + i, // Vorwärts
 		}
 
-		err := b.DeleteMessage(update.Message.Chat.ID, messageID)
-		if err == nil {
-			deletedCount++
+		for _, messageID := range candidates {
+			if messageID > 0 && deletedCount < count {
+				err := b.DeleteMessage(update.Message.Chat.ID, messageID)
+				if err == nil {
+					deletedCount++
+				}
+			}
 		}
-		
-		time.Sleep(50 * time.Millisecond)
+
+		time.Sleep(30 * time.Millisecond)
 	}
 
 	b.DeleteMessage(update.Message.Chat.ID, update.Message.MessageID)
 
 	if deletedCount > 0 {
 		successMsg := fmt.Sprintf(
-			"🗑️ **%d Nachrichten gelöscht**\n\n"+
-				"👮 **Admin:** %s",
+			"%d Nachrichten geloescht\n\n"+
+				"Admin: %s",
 			deletedCount,
 			bot.GetUserMention(update.Message.From),
 		)
 
-		msg, err := b.SendMessage(update.Message.Chat.ID, successMsg)
-		if err == nil {
-			go func() {
-				time.Sleep(5 * time.Second)
-				b.DeleteMessage(update.Message.Chat.ID, msg.MessageID)
-			}()
-		}
+		_, _ = b.SendTemporaryMessageAndDeleteCommand(update.Message.Chat.ID, successMsg, update.Message.MessageID, 5)
 	}
 
 	return nil
 }
 
-func extractTargetUser(message *tgbotapi.Message) (*tgbotapi.User, error) {
-	if message.ReplyToMessage != nil {
-		return message.ReplyToMessage.From, nil
+func extractTargetUserAndReason(b *bot.Bot, message *tgbotapi.Message) (*tgbotapi.User, string, error) {
+	var reason string
+
+	// Priority 1: Reply to message
+	if message.ReplyToMessage != nil && message.ReplyToMessage.From != nil {
+		user := message.ReplyToMessage.From
+		log.Printf("DEBUG: Reply-to-Message User: ID=%d, Username=%s, FirstName=%s",
+			user.ID, user.UserName, user.FirstName)
+
+		if user.ID == 0 {
+			return nil, "", fmt.Errorf("User-ID ist 0 in Reply-Nachricht")
+		}
+		if user.IsBot {
+			return nil, "", fmt.Errorf("Kann keine Aktionen auf Bots ausführen")
+		}
+
+		// Reason aus Command-Arguments extrahieren
+		args := message.CommandArguments()
+		if args != "" {
+			reason = strings.TrimSpace(args)
+		}
+
+		return user, reason, nil
 	}
 
+	// Priority 2: Parse from command arguments
 	args := strings.Fields(message.CommandArguments())
 	if len(args) < 1 {
-		return nil, fmt.Errorf("Verwendung: /%s @username oder als Antwort auf eine Nachricht", message.Command())
+		return nil, "", fmt.Errorf("Verwendung: /%s @username [Grund] oder als Antwort auf eine Nachricht", message.Command())
 	}
 
-	return parseUserFromArgs(args[0])
+	user, err := parseUserFromArgs(b, message.Chat.ID, args[0])
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Reason aus weiteren Arguments extrahieren
+	if len(args) > 1 {
+		reason = strings.Join(args[1:], " ")
+	}
+
+	return user, reason, nil
 }
 
-func parseUserFromArgs(arg string) (*tgbotapi.User, error) {
+func extractTargetUser(b *bot.Bot, message *tgbotapi.Message) (*tgbotapi.User, error) {
+	user, _, err := extractTargetUserAndReason(b, message)
+	return user, err
+}
+
+func parseUserFromArgs(b *bot.Bot, chatID int64, arg string) (*tgbotapi.User, error) {
 	arg = strings.TrimSpace(arg)
-	
+
+	// Try to parse as user ID first
+	if userID, err := strconv.ParseInt(arg, 10, 64); err == nil {
+		return &tgbotapi.User{
+			ID: userID,
+		}, nil
+	}
+
+	// If it starts with @, try to resolve username
 	if strings.HasPrefix(arg, "@") {
 		username := strings.TrimPrefix(arg, "@")
+		userID, err := resolveUsernameInChat(b, chatID, username)
+		if err != nil {
+			return nil, err
+		}
 		return &tgbotapi.User{
+			ID:       userID,
 			UserName: username,
 		}, nil
 	}
 
-	userID, err := strconv.ParseInt(arg, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("Ungültiger Username oder User-ID: %s", arg)
+	return nil, fmt.Errorf("Ungültiges Format: %s (verwende @username oder User-ID)", arg)
+}
+
+// resolveUsernameInChat versucht einen Username über Chat Member API aufzulösen
+func resolveUsernameInChat(b *bot.Bot, chatID int64, username string) (int64, error) {
+	// Telegram Bot API kann Usernames nicht direkt auflösen
+	// Wir müssen den User über eine Nachricht finden oder Chat-Member enumerieren
+
+	// Versuche Chat Member API (funktioniert nur bei kleinen Gruppen)
+	config := tgbotapi.ChatAdministratorsConfig{
+		ChatConfig: tgbotapi.ChatConfig{ChatID: chatID},
 	}
 
-	return &tgbotapi.User{
-		ID: userID,
-	}, nil
+	admins, err := b.GetAPI().GetChatAdministrators(config)
+	if err == nil {
+		for _, admin := range admins {
+			if admin.User.UserName == username {
+				return admin.User.ID, nil
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("Username @%s nicht gefunden. Bei großen Gruppen verwende 'Auf Nachricht antworten' oder User-ID", username)
 }
 
 type UnmuteHandler struct{}
@@ -405,13 +526,13 @@ func (h *UnmuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	if !isAdmin {
-		b.SendMessage(update.Message.Chat.ID, "❌ Du hast keine Berechtigung für diesen Befehl.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
 
-	targetUser, err := extractTargetUser(update.Message)
+	targetUser, err := extractTargetUser(b, update.Message)
 	if err != nil {
-		b.SendMessage(update.Message.Chat.ID, "❌ "+err.Error())
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, ""+err.Error(), 5)
 		return nil
 	}
 
@@ -421,7 +542,7 @@ func (h *UnmuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	if !isMuted {
-		b.SendMessage(update.Message.Chat.ID, "❌ Dieser User ist nicht gemutet.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Dieser User ist nicht gemutet.")
 		return nil
 	}
 
@@ -437,7 +558,7 @@ func (h *UnmuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	if err := b.RestrictChatMember(update.Message.Chat.ID, targetUser.ID, permissions); err != nil {
-		b.SendMessage(update.Message.Chat.ID, "❌ Fehler beim Entmuten des Users.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Fehler beim Entmuten des Users.")
 		return fmt.Errorf("failed to unmute user: %w", err)
 	}
 
@@ -446,13 +567,13 @@ func (h *UnmuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	successMsg := fmt.Sprintf(
-		"🔊 **User entmutet**\n\n"+
-			"👤 **User:** %s\n"+
-			"👮 **Admin:** %s",
+		"User entmutet\n\n"+
+			"User: %s\n"+
+			"Admin: %s",
 		bot.FormatUserName(targetUser),
 		bot.GetUserMention(update.Message.From),
 	)
 
-	b.SendMessage(update.Message.Chat.ID, successMsg)
+	_, _ = b.SendTemporaryMessageAndDeleteCommand(update.Message.Chat.ID, successMsg, update.Message.MessageID, 5)
 	return nil
 }

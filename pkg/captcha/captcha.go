@@ -58,7 +58,7 @@ func (h *Handler) handleNewMember(b *bot.Bot, chatID int64, user *tgbotapi.User)
 	}
 
 	captchaKey := generateCaptcha()
-	
+
 	pendingUser := database.PendingUser{
 		UserID:     user.ID,
 		ChatID:     chatID,
@@ -76,9 +76,9 @@ func (h *Handler) handleNewMember(b *bot.Bot, chatID int64, user *tgbotapi.User)
 
 func (h *Handler) sendCaptchaToDM(b *bot.Bot, user *tgbotapi.User, captchaKey string, groupChatID int64) error {
 	text := fmt.Sprintf(
-		"🔐 **Willkommen!**\n\n"+
+		"Willkommen!\n\n"+
 			"Um der Gruppe beizutreten, löse bitte das folgende Captcha:\n\n"+
-			"**Berechne:** %s\n\n"+
+			"Berechne: %s\n\n"+
 			"Du hast %d Minuten Zeit und maximal %d Versuche.",
 		generateMathProblem(captchaKey),
 		b.GetConfig().Captcha.TimeoutMinutes,
@@ -87,22 +87,22 @@ func (h *Handler) sendCaptchaToDM(b *bot.Bot, user *tgbotapi.User, captchaKey st
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✅ Antwort eingeben", fmt.Sprintf("captcha_solve:%d:%s", groupChatID, captchaKey)),
+			tgbotapi.NewInlineKeyboardButtonData("Antwort eingeben", fmt.Sprintf("captcha_solve:%d:%s", groupChatID, captchaKey)),
 		),
 	)
 
 	_, err := b.SendMessageWithKeyboard(user.ID, text, keyboard)
 	if err != nil {
 		groupText := fmt.Sprintf(
-			"❌ %s, ich konnte dir keine private Nachricht senden!\n\n"+
+			"%s, ich konnte dir keine private Nachricht senden!\n\n"+
 				"Bitte starte zuerst eine Unterhaltung mit mir (@%s) und tritt dann erneut der Gruppe bei.",
 			bot.GetUserMention(user), b.GetAPI().Self.UserName,
 		)
-		b.SendMessage(groupChatID, groupText)
-		
+		_, _ = b.SendMessage(groupChatID, groupText)
+
 		b.KickChatMember(groupChatID, user.ID)
 		b.UnbanChatMember(groupChatID, user.ID)
-		
+
 		return fmt.Errorf("could not send DM to user")
 	}
 
@@ -176,21 +176,21 @@ func (h *CallbackHandler) handleCaptchaSolve(b *bot.Bot, callback *tgbotapi.Call
 	}
 
 	captchaKey := parts[2]
-	
+
 	pendingUser, err := b.GetDB().GetPendingUser(callback.From.ID, groupChatID)
 	if err != nil {
-		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "❌ Captcha nicht gefunden oder abgelaufen!"))
+		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "Captcha nicht gefunden oder abgelaufen!"))
 		return nil
 	}
 
 	if pendingUser.CaptchaKey != captchaKey {
-		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "❌ Ungültiges Captcha!"))
+		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "Ungültiges Captcha!"))
 		return nil
 	}
 
 	if time.Now().After(pendingUser.ExpiresAt) {
 		b.GetDB().RemovePendingUser(callback.From.ID, groupChatID)
-		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "❌ Captcha abgelaufen!"))
+		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "Captcha abgelaufen!"))
 		return nil
 	}
 
@@ -201,10 +201,10 @@ func (h *CallbackHandler) handleCaptchaSolve(b *bot.Bot, callback *tgbotapi.Call
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup()
 	row := make([]tgbotapi.InlineKeyboardButton, 0)
-	
+
 	correctAnswer := solution
 	wrongAnswers := []int{correctAnswer + 1, correctAnswer - 1, correctAnswer + 2}
-	
+
 	answers := append([]int{correctAnswer}, wrongAnswers...)
 	rand.Shuffle(len(answers), func(i, j int) { answers[i], answers[j] = answers[j], answers[i] })
 
@@ -219,7 +219,7 @@ func (h *CallbackHandler) handleCaptchaSolve(b *bot.Bot, callback *tgbotapi.Call
 	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, row)
 
 	text := fmt.Sprintf(
-		"🔢 **Captcha-Lösung**\n\n"+
+		"Captcha-Loesung\n\n"+
 			"Berechne: %s\n\n"+
 			"Wähle die richtige Antwort:",
 		generateMathProblem(captchaKey),
@@ -257,13 +257,13 @@ func (h *CallbackHandler) handleCaptchaAnswer(b *bot.Bot, callback *tgbotapi.Cal
 
 	pendingUser, err := b.GetDB().GetPendingUser(callback.From.ID, groupChatID)
 	if err != nil {
-		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "❌ Captcha nicht gefunden!"))
+		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "Captcha nicht gefunden!"))
 		return nil
 	}
 
 	if time.Now().After(pendingUser.ExpiresAt) {
 		b.GetDB().RemovePendingUser(callback.From.ID, groupChatID)
-		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "❌ Captcha abgelaufen!"))
+		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "Captcha abgelaufen!"))
 		return nil
 	}
 
@@ -299,7 +299,7 @@ func (h *CallbackHandler) handleCorrectAnswer(b *bot.Bot, callback *tgbotapi.Cal
 		return fmt.Errorf("failed to remove pending user: %w", err)
 	}
 
-	successText := "✅ **Glückwunsch!**\n\nDu hast das Captcha erfolgreich gelöst und wurdest zur Gruppe hinzugefügt!"
+	successText := "Glueckwunsch!\n\nDu hast das Captcha erfolgreich gelöst und wurdest zur Gruppe hinzugefügt!"
 	edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, successText)
 	edit.ParseMode = "Markdown"
 	b.GetAPI().Send(edit)
@@ -309,7 +309,7 @@ func (h *CallbackHandler) handleCorrectAnswer(b *bot.Bot, callback *tgbotapi.Cal
 		b.GetConfig().Captcha.WelcomeMessage,
 		bot.GetUserMention(callback.From),
 	)
-	
+
 	msg, err := b.SendMessage(groupChatID, welcomeText)
 	if err == nil {
 		go func() {
@@ -335,7 +335,7 @@ func (h *CallbackHandler) handleWrongAnswer(b *bot.Bot, callback *tgbotapi.Callb
 			return fmt.Errorf("failed to remove pending user: %w", err)
 		}
 
-		failText := "❌ **Captcha fehlgeschlagen!**\n\nDu hast zu viele falsche Versuche gemacht und wurdest aus der Gruppe entfernt."
+		failText := "Captcha fehlgeschlagen!\n\nDu hast zu viele falsche Versuche gemacht und wurdest aus der Gruppe entfernt."
 		edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, failText)
 		edit.ParseMode = "Markdown"
 		b.GetAPI().Send(edit)
@@ -343,21 +343,21 @@ func (h *CallbackHandler) handleWrongAnswer(b *bot.Bot, callback *tgbotapi.Callb
 		b.KickChatMember(groupChatID, callback.From.ID)
 		b.UnbanChatMember(groupChatID, callback.From.ID)
 
-		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "❌ Zu viele Fehlversuche!"))
+		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "Zu viele Fehlversuche!"))
 		return nil
 	}
 
 	remainingAttempts := maxAttempts - attempts
 	retryText := fmt.Sprintf(
-		"❌ **Falsche Antwort!**\n\n"+
-			"Du hast noch **%d** Versuche übrig.\n\n"+
+		"Falsche Antwort!\n\n"+
+			"Du hast noch %d Versuche uebrig.\n\n"+
 			"Klicke erneut auf 'Antwort eingeben' um es nochmal zu versuchen.",
 		remainingAttempts,
 	)
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Erneut versuchen", fmt.Sprintf("captcha_solve:%d:%s", groupChatID, pendingUser.CaptchaKey)),
+			tgbotapi.NewInlineKeyboardButtonData("Erneut versuchen", fmt.Sprintf("captcha_solve:%d:%s", groupChatID, pendingUser.CaptchaKey)),
 		),
 	)
 
@@ -366,6 +366,6 @@ func (h *CallbackHandler) handleWrongAnswer(b *bot.Bot, callback *tgbotapi.Callb
 	edit.ParseMode = "Markdown"
 	b.GetAPI().Send(edit)
 
-	b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, fmt.Sprintf("❌ Falsch! Noch %d Versuche", remainingAttempts)))
+	b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, fmt.Sprintf("Falsch! Noch %d Versuche", remainingAttempts)))
 	return nil
 }
