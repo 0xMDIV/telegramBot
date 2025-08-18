@@ -24,12 +24,12 @@ func (h *HelpHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	if !isAdmin {
-		_, _ = b.SendMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
 
 	if err := h.sendHelpDM(b, update.Message.From.ID); err != nil {
-		_, _ = b.SendMessage(update.Message.Chat.ID, "Ich konnte dir keine private Nachricht senden. Starte zuerst eine Unterhaltung mit mir.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Ich konnte dir keine private Nachricht senden. Starte zuerst eine Unterhaltung mit mir.", 5)
 		return nil
 	}
 

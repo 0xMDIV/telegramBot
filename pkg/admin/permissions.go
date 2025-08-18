@@ -23,18 +23,18 @@ func (h *PermissionsHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	if !isAdmin {
-		_, _ = b.SendMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
 
 	hasPerms, status, err := b.CheckRequiredPermissions(update.Message.Chat.ID)
 	if err != nil {
-		_, _ = b.SendMessage(update.Message.Chat.ID, "Fehler beim Überprüfen der Bot-Rechte: "+err.Error())
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Fehler beim Überprüfen der Bot-Rechte: "+err.Error(), 5)
 		return err
 	}
 
 	if err := h.sendPermissionsDM(b, update.Message.From.ID, status, hasPerms); err != nil {
-		_, _ = b.SendMessage(update.Message.Chat.ID, "Ich konnte dir keine private Nachricht senden. Starte zuerst eine Unterhaltung mit mir.")
+		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Ich konnte dir keine private Nachricht senden. Starte zuerst eine Unterhaltung mit mir.", 5)
 		return nil
 	}
 
