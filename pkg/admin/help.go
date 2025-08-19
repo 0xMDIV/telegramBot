@@ -41,40 +41,40 @@ func (h *HelpHandler) sendHelpDM(b *bot.Bot, userID int64) error {
 	// Prüfen ob User Bot-Admin ist für erweiterte Hilfe
 	isBotAdmin := h.isBotAdmin(b, userID)
 
-	helpText := fmt.Sprintf(`🛡️ **Telegram Security Bot - Hilfe**
+	helpText := fmt.Sprintf(`🛡️ Telegram Security Bot - Hilfe
 
-📋 **Moderation Commands:**
-• **/ban** @user [Grund] - User permanent bannen
-• **/kick** @user [Grund] - User aus Gruppe entfernen  
-• **/mute** @user [Stunden] [Grund] - User temporär muten (Standard: 1h)
-• **/unmute** @user - Mute aufheben
-• **/del** [Anzahl] - Letzten X Nachrichten löschen (max. %d)
+📋 Moderation Commands:
+• /ban @user [Grund] - User permanent bannen
+• /kick @user [Grund] - User aus Gruppe entfernen  
+• /mute @user [Stunden] [Grund] - User temporär muten (Standard: 1h)
+• /unmute @user - Mute aufheben
+• /del [Anzahl] - Letzten X Nachrichten löschen (max. %d)
 
-👑 **Admin-Management:**
-• **/add_admin** @user - User als Bot-Admin hinzufügen
-• **/add_admin** 123456789 - User per ID als Bot-Admin hinzufügen
-• **/del_admin** @user - Bot-Admin Rechte entfernen
-• **/del_admin** 123456789 - Bot-Admin per ID entfernen
+👑 Admin-Management:
+• /add_admin @user - User als Bot-Admin hinzufügen
+• /add_admin 123456789 - User per ID als Bot-Admin hinzufügen
+• /del_admin @user - Bot-Admin Rechte entfernen
+• /del_admin 123456789 - Bot-Admin per ID entfernen
 
-ℹ️ **Hilfsbefehle:**
-• **/help** - Diese Hilfe anzeigen
-• **/permissions** - Bot-Rechte überprüfen
+ℹ️ Hilfsbefehle:
+• /help - Diese Hilfe anzeigen
+• /permissions - Bot-Rechte überprüfen
 
-📝 **Verwendung:**
-• **Als Antwort auf Nachricht:** /ban, /kick, /mute 2 Störend
-• **Mit User-ID:** /ban 123456789 Spam
-• **Mit @Username:** /mute @user 2 (nur bei kleinen Gruppen)
+📝 Verwendung:
+• Als Antwort auf Nachricht: /ban, /kick, /mute 2 Störend
+• Mit User-ID: /ban 123456789 Spam
+• Mit @Username: /mute @user 2 (nur bei kleinen Gruppen)
 
-🔒 **Captcha-System:**
-Neue Mitglieder lösen Captcha **direkt in der Gruppe**:
+🔒 Captcha-System:
+Neue Mitglieder lösen Captcha direkt in der Gruppe:
 • Mathematische Aufgaben (z.B. "5+3 = ?")
 • %d Minuten Zeit, %d Versuche
 • Bei Erfolg: Volle Berechtigung nach %d Min gelöscht
 • Bei Fehlschlag: Automatischer Kick
 
-👥 **Admin-System:**
-• **Gruppen-Admins:** Automatisch alle Bot-Rechte in ihrer Gruppe
-• **Bot-Admins:** Globale Rechte + Config-Zugriff per DM`,
+👥 Admin-System:
+• Gruppen-Admins: Automatisch alle Bot-Rechte in ihrer Gruppe
+• Bot-Admins: Globale Rechte + Config-Zugriff per DM`,
 		b.GetConfig().Admin.MaxDeleteMessages,
 		b.GetConfig().Captcha.MessageDeleteDelayMinutes,
 		b.GetConfig().Captcha.MaxAttempts,
@@ -83,20 +83,20 @@ Neue Mitglieder lösen Captcha **direkt in der Gruppe**:
 	if isBotAdmin {
 		helpText += fmt.Sprintf(`
 
-⚙️ **Bot-Admin Commands (nur per DM):**
-• **/config** - Alle Konfigurationsoptionen anzeigen
-• **/config** <schlüssel> <wert> - Einstellung ändern
+⚙️ Bot-Admin Commands (nur per DM):
+• /config - Alle Konfigurationsoptionen anzeigen
+• /config <schlüssel> <wert> - Einstellung ändern
 
-📊 **Verfügbare Config-Optionen:**
-• **timeout_minutes** = %d (Captcha-Zeitlimit)
-• **max_attempts** = %d (Captcha-Versuche)  
-• **welcome_message** = "%s"
-• **message_delete_delay_minutes** = %d
-• **success_message_delete_delay_minutes** = %d
-• **default_mute_hours** = %d
-• **max_delete_messages** = %d
+📊 Verfügbare Config-Optionen:*
+• timeout_minutes = %d (Captcha-Zeitlimit)
+• max_attempts = %d (Captcha-Versuche)  
+• welcome_message = "%s"
+• message_delete_delay_minutes = %d
+• success_message_delete_delay_minutes = %d
+• default_mute_hours = %d
+• max_delete_messages = %d
 
-📌 **Config-Beispiele:**
+📌 Config-Beispiele:
 • /config timeout_minutes 10
 • /config welcome_message "Willkommen!"
 • /config success_message_delete_delay_minutes 2`,
@@ -111,12 +111,12 @@ Neue Mitglieder lösen Captcha **direkt in der Gruppe**:
 
 	helpText += `
 
-💡 **Tipps:**
+💡 Tipps:
 • Commands funktionieren in Gruppen und per Antwort auf Nachrichten
 • Bot-Admins können Config per DM ändern
 • Alle Aktionen werden geloggt (commands.log, events.log)
 
-🚨 **Support:**
+🚨 Support:
 Bei Fragen oder Problemen wende dich an den Bot-Administrator.`
 
 	_, err := b.SendMessage(userID, helpText)
