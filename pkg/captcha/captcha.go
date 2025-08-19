@@ -43,7 +43,7 @@ func (h *Handler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 
 func (h *Handler) handleNewMember(b *bot.Bot, chatID int64, user *tgbotapi.User) error {
 	permissions := tgbotapi.ChatPermissions{
-		CanSendMessages:       false,
+		CanSendMessages:       true, // User darf Nachrichten senden für Captcha-Antworten
 		CanSendMediaMessages:  false,
 		CanSendPolls:          false,
 		CanSendOtherMessages:  false,
