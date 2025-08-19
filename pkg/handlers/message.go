@@ -18,7 +18,7 @@ func (h *MessageHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 	}
 
 	message := update.Message
-	
+
 	if message.Chat.Type == "private" {
 		return nil
 	}

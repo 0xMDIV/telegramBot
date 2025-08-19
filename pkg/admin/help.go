@@ -38,43 +38,97 @@ func (h *HelpHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 }
 
 func (h *HelpHandler) sendHelpDM(b *bot.Bot, userID int64) error {
-	helpText := fmt.Sprintf(`Telegram Security Bot - Admin Hilfe
+	// Prüfen ob User Bot-Admin ist für erweiterte Hilfe
+	isBotAdmin := h.isBotAdmin(b, userID)
 
-Verfuegbare Commands:
+	helpText := fmt.Sprintf(`🛡️ **Telegram Security Bot - Hilfe**
 
-Moderation:
-• /ban @user - User permanent bannen
-• /kick @user - User aus Gruppe entfernen  
-• /mute @user [Stunden] - User temporär muten (Standard: 1h)
-• /unmute @user - Mute aufheben
+📋 **Moderation Commands:**
+• **/ban** @user [Grund] - User permanent bannen
+• **/kick** @user [Grund] - User aus Gruppe entfernen  
+• **/mute** @user [Stunden] [Grund] - User temporär muten (Standard: 1h)
+• **/unmute** @user - Mute aufheben
+• **/del** [Anzahl] - Letzten X Nachrichten löschen (max. %d)
 
-Nachrichten:
-• /del [Anzahl] - Letzten X Nachrichten loeschen (max. 100)
-• /permissions - Bot-Rechte ueberpruefen
+👑 **Admin-Management:**
+• **/add_admin** @user - User als Bot-Admin hinzufügen
+• **/add_admin** 123456789 - User per ID als Bot-Admin hinzufügen
+• **/del_admin** @user - Bot-Admin Rechte entfernen
+• **/del_admin** 123456789 - Bot-Admin per ID entfernen
 
-Verwendung:
-• Als Antwort auf Nachricht: /ban, /kick, /mute 2
-• Mit User-ID: /ban 123456789
+ℹ️ **Hilfsbefehle:**
+• **/help** - Diese Hilfe anzeigen
+• **/permissions** - Bot-Rechte überprüfen
 
-WICHTIG: Username-Aufloesung funktioniert nur bei 'Auf Nachricht antworten'.
-Direkte @username Eingabe wird nicht unterstuetzt.
+📝 **Verwendung:**
+• **Als Antwort auf Nachricht:** /ban, /kick, /mute 2 Störend
+• **Mit User-ID:** /ban 123456789 Spam
+• **Mit @Username:** /mute @user 2 (nur bei kleinen Gruppen)
 
-Captcha-System:
-Neue Mitglieder werden automatisch stummgeschaltet und müssen ein Captcha per DM lösen.
+🔒 **Captcha-System:**
+Neue Mitglieder lösen Captcha **direkt in der Gruppe**:
+• Mathematische Aufgaben (z.B. "5+3 = ?")
+• %d Minuten Zeit, %d Versuche
+• Bei Erfolg: Volle Berechtigung nach %d Min gelöscht
+• Bei Fehlschlag: Automatischer Kick
 
-Konfiguration:
-• Captcha-Timeout: %d Minuten
-• Max. Versuche: %d
-• Standard Mute-Dauer: %d Stunden
-• Max. löschbare Nachrichten: %d
-
-Support:
-Bei Fragen oder Problemen wende dich an den Bot-Administrator.`,
-		b.GetConfig().Captcha.TimeoutMinutes,
+👥 **Admin-System:**
+• **Gruppen-Admins:** Automatisch alle Bot-Rechte in ihrer Gruppe
+• **Bot-Admins:** Globale Rechte + Config-Zugriff per DM`,
+		b.GetConfig().Admin.MaxDeleteMessages,
+		b.GetConfig().Captcha.MessageDeleteDelayMinutes,
 		b.GetConfig().Captcha.MaxAttempts,
-		b.GetConfig().Admin.DefaultMuteHours,
-		b.GetConfig().Admin.MaxDeleteMessages)
+		b.GetConfig().Captcha.SuccessMessageDeleteDelayMinutes)
+
+	if isBotAdmin {
+		helpText += fmt.Sprintf(`
+
+⚙️ **Bot-Admin Commands (nur per DM):**
+• **/config** - Alle Konfigurationsoptionen anzeigen
+• **/config** <schlüssel> <wert> - Einstellung ändern
+
+📊 **Verfügbare Config-Optionen:**
+• **timeout_minutes** = %d (Captcha-Zeitlimit)
+• **max_attempts** = %d (Captcha-Versuche)  
+• **welcome_message** = "%s"
+• **message_delete_delay_minutes** = %d
+• **success_message_delete_delay_minutes** = %d
+• **default_mute_hours** = %d
+• **max_delete_messages** = %d
+
+📌 **Config-Beispiele:**
+• /config timeout_minutes 10
+• /config welcome_message "Willkommen!"
+• /config success_message_delete_delay_minutes 2`,
+			b.GetConfig().Captcha.TimeoutMinutes,
+			b.GetConfig().Captcha.MaxAttempts,
+			b.GetConfig().Captcha.WelcomeMessage,
+			b.GetConfig().Captcha.MessageDeleteDelayMinutes,
+			b.GetConfig().Captcha.SuccessMessageDeleteDelayMinutes,
+			b.GetConfig().Admin.DefaultMuteHours,
+			b.GetConfig().Admin.MaxDeleteMessages)
+	}
+
+	helpText += `
+
+💡 **Tipps:**
+• Commands funktionieren in Gruppen und per Antwort auf Nachrichten
+• Bot-Admins können Config per DM ändern
+• Alle Aktionen werden geloggt (commands.log, events.log)
+
+🚨 **Support:**
+Bei Fragen oder Problemen wende dich an den Bot-Administrator.`
 
 	_, err := b.SendMessage(userID, helpText)
 	return err
+}
+
+func (h *HelpHandler) isBotAdmin(b *bot.Bot, userID int64) bool {
+	cfg := b.GetConfig()
+	for _, adminID := range cfg.Admin.AdminUserIDs {
+		if adminID == userID {
+			return true
+		}
+	}
+	return false
 }

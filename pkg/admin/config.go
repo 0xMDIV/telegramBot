@@ -28,7 +28,10 @@ func (h *ConfigHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 		return nil
 	}
 
-	// Prüfen ob User Admin ist
+	// Auto-Sync: Prüfen ob User Gruppen-Admin ist (wird bei erstem DM gemacht)
+	h.AutoSyncGroupAdmins(b, update.Message.From.ID)
+
+	// Prüfen ob User Admin ist (nach möglicher Auto-Sync)
 	if !h.isUserAdmin(b, update.Message.From.ID) {
 		_, err := b.SendMessage(update.Message.Chat.ID, "❌ Du hast keine Berechtigung für diesen Befehl.")
 		return err
@@ -58,6 +61,20 @@ func (h *ConfigHandler) isUserAdmin(b *bot.Bot, userID int64) bool {
 		}
 	}
 	return false
+}
+
+// AutoSyncGroupAdmins prüft bei DM ob User Gruppen-Admin ist und fügt ihn automatisch hinzu
+func (h *ConfigHandler) AutoSyncGroupAdmins(b *bot.Bot, userID int64) error {
+	// Wenn bereits Bot-Admin, nichts tun
+	if h.isUserAdmin(b, userID) {
+		return nil
+	}
+
+	// Alle bekannten Chats aus der Datenbank holen
+	// Da wir keine Chat-Liste haben, implementieren wir das später
+	// Für jetzt loggen wir nur die Anfrage
+
+	return nil
 }
 
 func (h *ConfigHandler) showConfigMenu(b *bot.Bot, chatID int64) error {

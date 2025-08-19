@@ -42,6 +42,12 @@ func (h *BanHandler) handleBan(b *bot.Bot, update tgbotapi.Update, isTemporary b
 		return nil
 	}
 
+	// Auto-Sync Gruppen-Admins bei Admin-Actions
+	syncHandler := NewSyncAdminsHandler()
+	if err := syncHandler.SyncGroupAdminsToBot(b, update.Message.Chat.ID); err != nil {
+		log.Printf("Failed to sync group admins: %v", err)
+	}
+
 	if !isUserAuthorized(b, update.Message.Chat.ID, update.Message.From.ID) {
 		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
