@@ -66,4 +66,5 @@ func registerHandlers(b *bot.Bot) {
 	b.RegisterHandler("config", admin.NewConfigHandler())
 	b.RegisterHandler("add_admin", admin.NewAddAdminHandler())
 	b.RegisterHandler("del_admin", admin.NewDelAdminHandler())
+	b.RegisterHandler("bootstrap", admin.NewBootstrapHandler())
 }

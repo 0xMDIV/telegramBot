@@ -146,6 +146,15 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 			return
 		}
 
+		// Bootstrap: Ersten Admin automatisch hinzufügen (nur bei DM)
+		if update.Message.Chat.Type == "private" {
+			if handler, exists := b.handlers["bootstrap"]; exists {
+				if err := handler.Handle(b, update); err != nil {
+					log.Printf("Error in bootstrap handler: %v", err)
+				}
+			}
+		}
+
 		// Log alle Nachrichten (außer Commands, die werden separat geloggt)
 		if !update.Message.IsCommand() {
 			username := GetUserIdentifier(update.Message.From)
