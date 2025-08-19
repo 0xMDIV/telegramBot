@@ -4,27 +4,64 @@ Ein modularer Telegram-Bot für Gruppensicherheit mit erweiterten Moderationsfun
 
 ## 🚀 Features
 
-- **Captcha-System**: Neue Mitglieder müssen ein mathematisches Captcha per DM lösen
+- **Gruppen-basiertes Captcha-System**: Neue Mitglieder lösen Captcha direkt in der Gruppe
 - **Admin-Commands**: Umfangreiche Moderationsbefehle für Admins
+- **Konfigurationsverwaltung**: Alle Einstellungen per DM-Chat anpassbar
+- **Admin-Management**: Dynamisches Hinzufügen/Entfernen von Bot-Admins
 - **Multi-Gruppen-Support**: Ein Bot kann mehrere Gruppen gleichzeitig verwalten
 - **Automatisches Muting**: Gemutete Benutzer können keine Nachrichten senden
+- **Umfassendes Logging**: Alle Events, Commands und Nachrichten werden geloggt
 - **Modularer Aufbau**: Einfach erweiterbar durch Handler-System
 
 ## 📋 Verfügbare Commands
 
-### Admin-Commands (nur für Gruppen-Admins)
+### Admin-Commands (für Gruppen-Admins & Bot-Admins)
 
-- `/ban @user` - Bannt einen User permanent aus der Gruppe
-- `/kick @user` - Kickt einen User aus der Gruppe (kann später wieder beitreten)
-- `/mute @user [Stunden]` - Mutet einen User für X Stunden (Standard: 1 Stunde)
+#### Moderation
+- `/ban @user [Grund]` - Bannt einen User permanent aus der Gruppe
+- `/kick @user [Grund]` - Kickt einen User aus der Gruppe (kann später wieder beitreten)
+- `/mute @user [Stunden] [Grund]` - Mutet einen User für X Stunden (Standard: 1 Stunde)
 - `/unmute @user` - Entfernt das Mute von einem User
 - `/del [Anzahl]` - Löscht die letzten X Nachrichten (max. 100)
 
+#### Admin-Management
+- `/add_admin @user` - Fügt einen User als Bot-Admin hinzu
+- `/add_admin 123456789` - Fügt einen User per ID als Bot-Admin hinzu
+- `/del_admin @user` - Entfernt einen User als Bot-Admin
+- `/del_admin 123456789` - Entfernt einen User per ID als Bot-Admin
+
+#### Hilfsbefehle
+- `/help` - Zeigt alle verfügbaren Commands
+- `/permissions` - Zeigt aktuelle Berechtigungen
+
+### Konfiguration (nur für Bot-Admins per DM)
+
+- `/config` - Zeigt alle konfigurierbaren Einstellungen mit aktuellen Werten
+- `/config <schlüssel> <wert>` - Ändert eine Konfiguration
+
+#### Verfügbare Konfigurationsschlüssel:
+- `timeout_minutes` - Zeitlimit für Captcha (1-60 Min)
+- `max_attempts` - Maximale Captcha-Versuche (1-10)
+- `welcome_message` - Willkommensnachricht für neue User
+- `message_delete_delay_minutes` - Löschzeit für Willkommensnachrichten (1-60 Min)
+- `success_message_delete_delay_minutes` - Löschzeit für Erfolgsnachrichten (1-60 Min)
+- `default_mute_hours` - Standard Mute-Dauer (1-168 Std)
+- `max_delete_messages` - Max löschbare Nachrichten (1-1000)
+
+#### Konfigurationsbeispiele:
+```
+/config timeout_minutes 10
+/config welcome_message "Hallo! Willkommen!"
+/config success_message_delete_delay_minutes 2
+```
+
+### Command-Verwendung
+
 Alle Commands funktionieren auch als Antwort auf Nachrichten:
 ```
-/ban
-/kick
-/mute 2
+/ban              # Bannt den User der ursprünglichen Nachricht
+/kick Spam        # Kickt mit Grund "Spam"
+/mute 2 Störend   # Mutet für 2 Stunden mit Grund "Störend"
 ```
 
 ## 🛠️ Installation
@@ -59,11 +96,14 @@ Kopiere die `config/config.json` und trage deinen Bot-Token ein:
   "captcha": {
     "timeout_minutes": 5,
     "max_attempts": 3,
-    "welcome_message": "Willkommen in der Gruppe! 🎉"
+    "welcome_message": "Willkommen in der Gruppe! 🎉",
+    "message_delete_delay_minutes": 5,
+    "success_message_delete_delay_minutes": 3
   },
   "admin": {
     "default_mute_hours": 1,
-    "max_delete_messages": 100
+    "max_delete_messages": 100,
+    "admin_user_ids": []
   },
   "database": {
     "file_path": "bot_data.db"
@@ -81,6 +121,10 @@ Kopiere die `config/config.json` und trage deinen Bot-Token ein:
    - Ban users
    - Restrict members
    - Add new admins (optional)
+
+### 5. Erste Admin-Konfiguration
+
+Füge deine User-ID zur `admin_user_ids` Liste in der config.json hinzu oder verwende `/add_admin` nachdem der Bot läuft.
 
 ## 🏃‍♂️ Bot starten
 
@@ -163,13 +207,20 @@ telegram-security-bot-windows-amd64.exe -config=config\config.json
 
 ## 🔒 Sicherheitsfeatures
 
-### Captcha-System
+### Gruppen-Captcha-System
 
-- Neue Mitglieder werden automatisch stummgeschaltet
-- Captcha wird per DM gesendet (mathematische Aufgabe)
-- 3 Versuche, 5 Minuten Zeit
-- Bei Fehlern: automatischer Kick aus der Gruppe
-- Nach erfolgreichem Lösen: Willkommensnachricht (auto-delete nach 10s)
+**Neuer Ablauf:**
+1. **User joint** → Bot sendet Willkommensnachricht mit Captcha direkt in der Gruppe
+2. **User antwortet** mit der richtigen Zahl in die Gruppe
+3. **Bei Erfolg**: User bekommt volle Berechtigung, Nachrichten werden nach konfigurierbarer Zeit gelöscht
+4. **Bei Fehlschlag**: User wird nach zu vielen Versuchen oder Timeout automatisch gekickt
+
+**Eigenschaften:**
+- Captcha erfolgt **direkt in der Gruppe** (keine DM-Probleme mehr)
+- Mathematische Aufgaben (z.B. "5+3 = ?")
+- Konfigurierbare Zeitlimits und Versuche
+- Separate Löschzeiten für verschiedene Nachrichtentypen
+- Umfassendes Logging aller Captcha-Events
 
 ### Mute-System
 
@@ -178,13 +229,50 @@ telegram-security-bot-windows-amd64.exe -config=config\config.json
 - Automatisches Entmuten nach Ablauf der Zeit
 - Persistent in der Datenbank gespeichert
 
+### Admin-System
+
+**Zwei Admin-Ebenen:**
+1. **Gruppen-Admins**: Haben automatisch alle Bot-Rechte in ihrer Gruppe
+2. **Bot-Admins**: Sind in der Config gespeichert, haben globale Rechte
+
+**Admin-Management:**
+- Dynamisches Hinzufügen/Entfernen von Bot-Admins über Commands
+- Beide Admin-Typen können `/add_admin` und `/del_admin` verwenden
+- Config-Änderungen nur für Bot-Admins per DM
+
+## 📊 Logging-System
+
+Der Bot erstellt zwei separate Log-Dateien:
+
+### commands.log
+```
+[2025-08-19 23:31:00] Chat: -123456 | User: 123456 (@admin) | Command: ban @spammer | Result: SUCCESS
+```
+
+### events.log
+```
+[2025-08-19 23:30:15] USER_JOINED | Chat: -123456 | User: 84937883 (@username) | Details: User joined the group
+[2025-08-19 23:30:45] MESSAGE | Chat: -123456 | User: 84937883 (@username) | Text: 8
+[2025-08-19 23:30:50] CAPTCHA_SUCCESS | Chat: -123456 | User: 84937883 (@username) | Details: Captcha solved successfully after 1 attempts
+[2025-08-19 23:32:00] CAPTCHA_FAIL | Chat: -123456 | User: 84937883 (@username) | Details: Too many wrong attempts
+[2025-08-19 23:32:01] USER_KICKED | Chat: -123456 | User: 84937883 (@username) | Details: Captcha failed - too many attempts
+```
+
+**Geloggte Events:**
+- Alle User-Joins und Leaves
+- Alle Nachrichten (außer Commands)
+- Alle Captcha-Erfolge und Fehlschläge
+- Alle Kicks und deren Gründe
+- Alle Admin-Commands und deren Ergebnisse
+
 ## 🗄️ Datenbank
 
 Der Bot verwendet SQLite für die Datenpersistierung:
 
-- `pending_users` - Captcha-Daten
+- `pending_users` - Captcha-Daten und Versuche
 - `muted_users` - Mute-Status und Dauer
 - `group_settings` - Gruppenspezifische Einstellungen
+- `welcome_messages` - Tracking von Willkommensnachrichten für Löschung
 
 Die Datenbank wird automatisch beim ersten Start erstellt.
 
@@ -194,10 +282,10 @@ Die Datenbank wird automatisch beim ersten Start erstellt.
 telegramBot/
 ├── config/              # Konfigurationsdateien
 ├── pkg/
-│   ├── bot/            # Bot-Core und Handler-Interface
+│   ├── bot/            # Bot-Core, Handler-Interface und Logging
 │   ├── database/       # Datenbankoperationen
-│   ├── captcha/        # Captcha-System
-│   ├── admin/          # Admin-Commands
+│   ├── captcha/        # Captcha-System (Gruppen + Message Handler)
+│   ├── admin/          # Admin-Commands + Config-Management
 │   └── handlers/       # Message-Handler
 ├── cmd/bot/            # Alternative Main-Implementierung
 └── main.go             # Hauptanwendung
@@ -212,6 +300,14 @@ type Handler interface {
     Handle(bot *Bot, update tgbotapi.Update) error
 }
 ```
+
+**Registrierte Handler:**
+- `new_member` - Captcha für neue User
+- `captcha_message` - Captcha-Antworten verarbeiten (vor normalem Message-Handler)
+- `message` - Normale Nachrichten
+- `callback` - Callback-Queries (Legacy)
+- Admin-Commands: `ban`, `kick`, `mute`, `unmute`, `del`, `help`, `permissions`
+- Admin-Management: `add_admin`, `del_admin`, `config`
 
 Neue Features können einfach durch neue Handler hinzugefügt werden.
 
@@ -238,15 +334,18 @@ b.RegisterHandler("mycommand", &MyHandler{})
 
 1. Config-Struct erweitern (`config/config.go`)
 2. Default-Werte in `config.json` hinzufügen
-3. In Handlers verwenden: `b.GetConfig()`
+3. Config-Handler erweitern (`pkg/admin/config.go`)
+4. In Handlers verwenden: `b.GetConfig()`
 
-## 📊 Logging
+### Neues Logging hinzufügen
 
-Der Bot loggt wichtige Ereignisse:
-- Startup/Shutdown
-- Command-Ausführungen
-- Errors und Warnings
-- Captcha-Ereignisse
+```go
+// Event-Logging
+b.GetEventLogger().LogEvent("CUSTOM_EVENT", chatID, userID, username, "Details")
+
+// Command-Logging (automatisch für alle Commands)
+// Wird automatisch von der handleUpdate-Funktion gemacht
+```
 
 ## 🚨 Troubleshooting
 
@@ -254,19 +353,35 @@ Der Bot loggt wichtige Ereignisse:
 
 1. Prüfe Bot-Token in config.json
 2. Stelle sicher, dass der Bot Admin-Rechte hat
-3. Prüfe Logs auf Fehler
+3. Prüfe Logs (`commands.log`, `events.log`) auf Fehler
+4. Prüfe Konsolen-Output
 
 ### Captcha funktioniert nicht
 
-1. Bot muss Nachrichten an User senden können
-2. User muss zuerst eine Unterhaltung mit dem Bot starten
-3. Prüfe `CanSendMessages` Berechtigung
+1. **Neues System**: Captcha läuft jetzt direkt in der Gruppe
+2. User müssen Nachrichten senden können (wird automatisch erlaubt)
+3. Prüfe `message_delete_delay_minutes` Config
+4. Prüfe Events-Log für Captcha-Events
 
-### Befehle funktionieren nicht
+### Config-Befehle funktionieren nicht
 
-1. Nur Gruppen-Admins können Admin-Commands nutzen
-2. Bot braucht entsprechende Admin-Rechte
-3. Commands sind case-sensitive
+1. `/config` funktioniert nur per **DM** an den Bot
+2. Nur **Bot-Admins** (in config.json) können Config ändern
+3. Gruppen-Admins haben nur normale Admin-Commands
+4. User-ID muss in `admin_user_ids` Array stehen
+
+### Admin-Commands funktionieren nicht
+
+1. **Gruppen-Admins** haben automatisch alle Bot-Admin-Rechte
+2. **Bot-Admins** sind global berechtigt
+3. Bot braucht entsprechende Admin-Rechte in der Gruppe
+4. Commands sind case-sensitive
+
+### Logging-Probleme
+
+1. Prüfe Schreibrechte im Bot-Verzeichnis
+2. Log-Dateien: `commands.log` und `events.log`
+3. Bei Fehlern: Konsolen-Output prüfen
 
 ## 🤝 Contributing
 
