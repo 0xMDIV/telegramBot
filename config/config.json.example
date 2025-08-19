@@ -1,0 +1,19 @@
+{
+  "admin": {
+    "admin_user_ids": [],
+    "default_mute_hours": 1,
+    "max_delete_messages": 100
+  },
+  "bot_token": "",
+  "captcha": {
+    "max_attempts": 5,
+    "message_delete_delay_minutes": 5,
+    "success_message_delete_delay_minutes": 3,
+    "timeout_minutes": 5,
+    "welcome_message": "Willkommen in der Gruppe! 🎉"
+  },
+  "database": {
+    "file_path": "bot_data.db"
+  },
+  "debug": false
+}
