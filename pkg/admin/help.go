@@ -87,7 +87,7 @@ Neue Mitglieder lösen Captcha direkt in der Gruppe:
 • /config - Alle Konfigurationsoptionen anzeigen
 • /config <schlüssel> <wert> - Einstellung ändern
 
-📊 Verfügbare Config-Optionen:*
+📊 Verfügbare Config-Optionen:
 • timeout_minutes = %d (Captcha-Zeitlimit)
 • max_attempts = %d (Captcha-Versuche)  
 • welcome_message = "%s"

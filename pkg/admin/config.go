@@ -80,37 +80,37 @@ func (h *ConfigHandler) AutoSyncGroupAdmins(b *bot.Bot, userID int64) error {
 func (h *ConfigHandler) showConfigMenu(b *bot.Bot, chatID int64) error {
 	cfg := b.GetConfig()
 
-	text := fmt.Sprintf(`⚙️ **Bot Konfiguration**
+	text := fmt.Sprintf(`⚙️ Bot Konfiguration
 
-📋 **Verfügbare Konfigurationsschlüssel:**
+📋 Verfügbare Konfigurationsschlüssel:
 
-🔒 **Captcha Einstellungen:**
-• **timeout_minutes** = %d
+🔒 Captcha Einstellungen:
+• timeout_minutes = %d
   └─ Zeitlimit für Captcha in Minuten (1-60)
 
-• **max_attempts** = %d
+• max_attempts = %d
   └─ Maximale Versuche für Captcha (1-10)
 
-• **welcome_message** = "%s"
+• welcome_message = "%s"
   └─ Willkommensnachricht für neue User
 
-• **message_delete_delay_minutes** = %d
+• message_delete_delay_minutes = %d
   └─ Löschzeit für Willkommensnachrichten (1-60)
 
-• **success_message_delete_delay_minutes** = %d
+• success_message_delete_delay_minutes = %d
   └─ Löschzeit für Erfolgsnachrichten (1-60)
 
-👑 **Admin Einstellungen:**
-• **default_mute_hours** = %d
+👑 Admin Einstellungen:
+• default_mute_hours = %d
   └─ Standard Mute Dauer in Stunden (1-168)
 
-• **max_delete_messages** = %d
+• max_delete_messages = %d
   └─ Max löschbare Nachrichten pro Command (1-1000)
 
-📝 **Verwendung:**
+📝 Verwendung:
 /config <schlüssel> <wert>
 
-📌 **Beispiele:**
+📌 Beispiele:
 • /config timeout_minutes 10
 • /config welcome_message "Hallo! Willkommen!"
 • /config success_message_delete_delay_minutes 2
