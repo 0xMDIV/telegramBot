@@ -65,29 +65,44 @@ func (h *ConfigHandler) showConfigMenu(b *bot.Bot, chatID int64) error {
 
 	text := fmt.Sprintf(`⚙️ **Bot Konfiguration**
 
-Aktuelle Einstellungen:
+📋 **Verfügbare Konfigurationsschlüssel:**
 
 🔒 **Captcha Einstellungen:**
-• timeout_minutes: %d (Zeitlimit für Captcha in Minuten)
-• max_attempts: %d (Maximale Versuche)
-• welcome_message: "%s"
-• message_delete_delay_minutes: %d (Löschzeit für Nachrichten)
+• **timeout_minutes** = %d
+  └─ Zeitlimit für Captcha in Minuten (1-60)
+
+• **max_attempts** = %d
+  └─ Maximale Versuche für Captcha (1-10)
+
+• **welcome_message** = "%s"
+  └─ Willkommensnachricht für neue User
+
+• **message_delete_delay_minutes** = %d
+  └─ Löschzeit für Willkommensnachrichten (1-60)
+
+• **success_message_delete_delay_minutes** = %d
+  └─ Löschzeit für Erfolgsnachrichten (1-60)
 
 👑 **Admin Einstellungen:**
-• default_mute_hours: %d (Standard Mute Dauer)
-• max_delete_messages: %d (Max löschbare Nachrichten)
+• **default_mute_hours** = %d
+  └─ Standard Mute Dauer in Stunden (1-168)
+
+• **max_delete_messages** = %d
+  └─ Max löschbare Nachrichten pro Command (1-1000)
 
 📝 **Verwendung:**
 /config <schlüssel> <wert>
 
-**Beispiele:**
-/config timeout_minutes 10
-/config welcome_message "Hallo! Willkommen!"
-/config max_attempts 5`,
+📌 **Beispiele:**
+• /config timeout_minutes 10
+• /config welcome_message "Hallo! Willkommen!"
+• /config success_message_delete_delay_minutes 2
+• /config max_attempts 5`,
 		cfg.Captcha.TimeoutMinutes,
 		cfg.Captcha.MaxAttempts,
 		cfg.Captcha.WelcomeMessage,
 		cfg.Captcha.MessageDeleteDelayMinutes,
+		cfg.Captcha.SuccessMessageDeleteDelayMinutes,
 		cfg.Admin.DefaultMuteHours,
 		cfg.Admin.MaxDeleteMessages)
 
@@ -137,6 +152,13 @@ func (h *ConfigHandler) updateConfig(b *bot.Bot, chatID int64, key, value string
 		if val, err := strconv.Atoi(value); err == nil && val > 0 {
 			if captcha, ok := cfg["captcha"].(map[string]interface{}); ok {
 				captcha["message_delete_delay_minutes"] = val
+				success = true
+			}
+		}
+	case "success_message_delete_delay_minutes":
+		if val, err := strconv.Atoi(value); err == nil && val > 0 {
+			if captcha, ok := cfg["captcha"].(map[string]interface{}); ok {
+				captcha["success_message_delete_delay_minutes"] = val
 				success = true
 			}
 		}

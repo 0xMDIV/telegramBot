@@ -12,11 +12,12 @@ import (
 )
 
 type Bot struct {
-	api      *tgbotapi.BotAPI
-	config   *config.Config
-	db       *database.DB
-	handlers map[string]Handler
-	logger   *CommandLogger
+	api         *tgbotapi.BotAPI
+	config      *config.Config
+	db          *database.DB
+	handlers    map[string]Handler
+	logger      *CommandLogger
+	eventLogger *EventLogger
 }
 
 type Handler interface {
@@ -41,12 +42,18 @@ func NewBot(cfg *config.Config) (*Bot, error) {
 		return nil, fmt.Errorf("failed to initialize command logger: %w", err)
 	}
 
+	eventLogger, err := NewEventLogger("events.log")
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize event logger: %w", err)
+	}
+
 	bot := &Bot{
-		api:      api,
-		config:   cfg,
-		db:       db,
-		handlers: make(map[string]Handler),
-		logger:   logger,
+		api:         api,
+		config:      cfg,
+		db:          db,
+		handlers:    make(map[string]Handler),
+		logger:      logger,
+		eventLogger: eventLogger,
 	}
 
 	return bot, nil
@@ -107,6 +114,14 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		}
 
 		if update.Message.NewChatMembers != nil {
+			// Log all new members
+			for _, newMember := range update.Message.NewChatMembers {
+				if !newMember.IsBot {
+					username := GetUserIdentifier(&newMember)
+					b.eventLogger.LogJoin(update.Message.Chat.ID, newMember.ID, username)
+				}
+			}
+
 			if handler, exists := b.handlers["new_member"]; exists {
 				if err := handler.Handle(b, update); err != nil {
 					log.Printf("Error handling new member: %v", err)
@@ -116,12 +131,25 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		}
 
 		if update.Message.LeftChatMember != nil {
+			// Log user leaving
+			leftMember := update.Message.LeftChatMember
+			if !leftMember.IsBot {
+				username := GetUserIdentifier(leftMember)
+				b.eventLogger.LogLeave(update.Message.Chat.ID, leftMember.ID, username)
+			}
+
 			if handler, exists := b.handlers["left_member"]; exists {
 				if err := handler.Handle(b, update); err != nil {
 					log.Printf("Error handling left member: %v", err)
 				}
 			}
 			return
+		}
+
+		// Log alle Nachrichten (außer Commands, die werden separat geloggt)
+		if !update.Message.IsCommand() {
+			username := GetUserIdentifier(update.Message.From)
+			b.eventLogger.LogMessage(update.Message.Chat.ID, update.Message.From.ID, username, update.Message.Text)
 		}
 
 		// Zuerst Captcha-Message Handler prüfen
@@ -303,10 +331,17 @@ func (b *Bot) GetAPI() *tgbotapi.BotAPI {
 	return b.api
 }
 
+func (b *Bot) GetEventLogger() *EventLogger {
+	return b.eventLogger
+}
+
 func (b *Bot) Stop() error {
 	b.api.StopReceivingUpdates()
 	if b.logger != nil {
 		b.logger.Close()
+	}
+	if b.eventLogger != nil {
+		b.eventLogger.Close()
 	}
 	return b.db.Close()
 }

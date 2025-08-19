@@ -112,6 +112,10 @@ func (h *Handler) sendCaptchaToGroup(b *bot.Bot, user *tgbotapi.User, captchaKey
 		pendingUser, err := b.GetDB().GetPendingUser(user.ID, chatID)
 		if err == nil && pendingUser != nil {
 			// User hat Captcha nicht gelöst - kicken
+			username := bot.GetUserIdentifier(user)
+			b.GetEventLogger().LogCaptchaFail(chatID, user.ID, username, "Timeout - captcha not solved in time")
+			b.GetEventLogger().LogKick(chatID, user.ID, username, "Captcha timeout")
+
 			b.KickChatMember(chatID, user.ID)
 			b.UnbanChatMember(chatID, user.ID)
 			b.GetDB().RemovePendingUser(user.ID, chatID)

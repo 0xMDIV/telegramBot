@@ -15,10 +15,11 @@ type Config struct {
 }
 
 type CaptchaConfig struct {
-	TimeoutMinutes            int    `json:"timeout_minutes"`
-	MaxAttempts               int    `json:"max_attempts"`
-	WelcomeMessage            string `json:"welcome_message"`
-	MessageDeleteDelayMinutes int    `json:"message_delete_delay_minutes"`
+	TimeoutMinutes                   int    `json:"timeout_minutes"`
+	MaxAttempts                      int    `json:"max_attempts"`
+	WelcomeMessage                   string `json:"welcome_message"`
+	MessageDeleteDelayMinutes        int    `json:"message_delete_delay_minutes"`
+	SuccessMessageDeleteDelayMinutes int    `json:"success_message_delete_delay_minutes"`
 }
 
 type AdminConfig struct {

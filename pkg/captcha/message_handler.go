@@ -68,16 +68,16 @@ func (h *MessageHandler) handleCaptchaResponse(b *bot.Bot, update tgbotapi.Updat
 }
 
 func (h *MessageHandler) handleCorrectCaptchaAnswer(b *bot.Bot, update tgbotapi.Update, pendingUser *database.PendingUser) error {
-	// User freischalten
+	// User freischalten - normale User-Rechte geben
 	permissions := tgbotapi.ChatPermissions{
 		CanSendMessages:       true,
 		CanSendMediaMessages:  true,
 		CanSendPolls:          true,
 		CanSendOtherMessages:  true,
 		CanAddWebPagePreviews: true,
-		CanChangeInfo:         false,
-		CanInviteUsers:        false,
-		CanPinMessages:        false,
+		CanChangeInfo:         true, // Normale User können Chat-Info ändern
+		CanInviteUsers:        true, // Normale User können andere einladen
+		CanPinMessages:        true, // Normale User können Nachrichten pinnen
 	}
 
 	if err := b.RestrictChatMember(update.Message.Chat.ID, update.Message.From.ID, permissions); err != nil {
@@ -90,6 +90,10 @@ func (h *MessageHandler) handleCorrectCaptchaAnswer(b *bot.Bot, update tgbotapi.
 		b.DeleteMessage(update.Message.Chat.ID, welcomeMessageID)
 		b.GetDB().RemoveWelcomeMessage(update.Message.From.ID, update.Message.Chat.ID)
 	}
+
+	// Log erfolgreiche Captcha-Lösung
+	username := bot.GetUserIdentifier(update.Message.From)
+	b.GetEventLogger().LogCaptchaSuccess(update.Message.Chat.ID, update.Message.From.ID, username, pendingUser.Attempts+1)
 
 	// User aus Pending-Liste entfernen
 	if err := b.GetDB().RemovePendingUser(update.Message.From.ID, update.Message.Chat.ID); err != nil {
@@ -106,9 +110,9 @@ func (h *MessageHandler) handleCorrectCaptchaAnswer(b *bot.Bot, update tgbotapi.
 	))
 
 	if err == nil {
-		// Erfolgs-Nachricht nach konfigurierten Minuten löschen
+		// Erfolgs-Nachricht nach separatem konfigurierten Delay löschen
 		go func() {
-			delay := time.Duration(b.GetConfig().Captcha.MessageDeleteDelayMinutes) * time.Minute
+			delay := time.Duration(b.GetConfig().Captcha.SuccessMessageDeleteDelayMinutes) * time.Minute
 			time.Sleep(delay)
 			b.DeleteMessage(update.Message.Chat.ID, successMsg.MessageID)
 		}()
@@ -131,6 +135,10 @@ func (h *MessageHandler) handleWrongCaptchaAnswer(b *bot.Bot, update tgbotapi.Up
 
 	if attempts >= maxAttempts {
 		// Maximale Versuche erreicht - User kicken
+		username := bot.GetUserIdentifier(update.Message.From)
+		b.GetEventLogger().LogCaptchaFail(update.Message.Chat.ID, update.Message.From.ID, username, "Too many wrong attempts")
+		b.GetEventLogger().LogKick(update.Message.Chat.ID, update.Message.From.ID, username, "Captcha failed - too many attempts")
+
 		if err := b.GetDB().RemovePendingUser(update.Message.From.ID, update.Message.Chat.ID); err != nil {
 			return fmt.Errorf("failed to remove pending user: %w", err)
 		}
