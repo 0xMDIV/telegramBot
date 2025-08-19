@@ -53,6 +53,7 @@ func main() {
 func registerHandlers(b *bot.Bot) {
 	b.RegisterHandler("new_member", captcha.NewHandler())
 	b.RegisterHandler("callback", captcha.NewCallbackHandler())
+	b.RegisterHandler("captcha_message", captcha.NewMessageHandler())
 	b.RegisterHandler("message", handlers.NewMessageHandler())
 
 	b.RegisterHandler("ban", admin.NewBanHandler())
@@ -62,4 +63,7 @@ func registerHandlers(b *bot.Bot) {
 	b.RegisterHandler("del", admin.NewDeleteHandler())
 	b.RegisterHandler("help", admin.NewHelpHandler())
 	b.RegisterHandler("permissions", admin.NewPermissionsHandler())
+	b.RegisterHandler("config", admin.NewConfigHandler())
+	b.RegisterHandler("add_admin", admin.NewAddAdminHandler())
+	b.RegisterHandler("del_admin", admin.NewDelAdminHandler())
 }

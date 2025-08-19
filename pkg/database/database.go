@@ -21,9 +21,9 @@ type PendingUser struct {
 }
 
 type MutedUser struct {
-	UserID   int64
-	ChatID   int64
-	Until    time.Time
+	UserID int64
+	ChatID int64
+	Until  time.Time
 }
 
 func NewDB(filepath string) (*DB, error) {
@@ -61,6 +61,12 @@ func (db *DB) createTables() error {
 			admin_ids TEXT,
 			captcha_enabled BOOLEAN DEFAULT 1
 		)`,
+		`CREATE TABLE IF NOT EXISTS welcome_messages (
+			user_id INTEGER,
+			chat_id INTEGER,
+			message_id INTEGER,
+			PRIMARY KEY (user_id, chat_id)
+		)`,
 	}
 
 	for _, query := range queries {
@@ -82,7 +88,7 @@ func (db *DB) AddPendingUser(user PendingUser) error {
 func (db *DB) GetPendingUser(userID, chatID int64) (*PendingUser, error) {
 	query := `SELECT user_id, chat_id, captcha_key, expires_at, attempts FROM pending_users 
 			  WHERE user_id = ? AND chat_id = ?`
-	
+
 	var user PendingUser
 	err := db.conn.QueryRow(query, userID, chatID).Scan(
 		&user.UserID, &user.ChatID, &user.CaptchaKey, &user.ExpiresAt, &user.Attempts,
@@ -113,7 +119,7 @@ func (db *DB) AddMutedUser(muted MutedUser) error {
 
 func (db *DB) IsUserMuted(userID, chatID int64) (bool, error) {
 	query := `SELECT until FROM muted_users WHERE user_id = ? AND chat_id = ?`
-	
+
 	var until time.Time
 	err := db.conn.QueryRow(query, userID, chatID).Scan(&until)
 	if err == sql.ErrNoRows {
@@ -140,6 +146,29 @@ func (db *DB) RemoveMutedUser(userID, chatID int64) error {
 func (db *DB) CleanExpiredUsers() error {
 	query := `DELETE FROM pending_users WHERE expires_at < ?`
 	_, err := db.conn.Exec(query, time.Now())
+	return err
+}
+
+func (db *DB) SetWelcomeMessage(userID, chatID int64, messageID int) error {
+	query := `INSERT OR REPLACE INTO welcome_messages (user_id, chat_id, message_id) VALUES (?, ?, ?)`
+	_, err := db.conn.Exec(query, userID, chatID, messageID)
+	return err
+}
+
+func (db *DB) GetWelcomeMessage(userID, chatID int64) (int, error) {
+	query := `SELECT message_id FROM welcome_messages WHERE user_id = ? AND chat_id = ?`
+
+	var messageID int
+	err := db.conn.QueryRow(query, userID, chatID).Scan(&messageID)
+	if err != nil {
+		return 0, err
+	}
+	return messageID, nil
+}
+
+func (db *DB) RemoveWelcomeMessage(userID, chatID int64) error {
+	query := `DELETE FROM welcome_messages WHERE user_id = ? AND chat_id = ?`
+	_, err := db.conn.Exec(query, userID, chatID)
 	return err
 }
 

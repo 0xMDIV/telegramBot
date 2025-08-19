@@ -42,12 +42,7 @@ func (h *BanHandler) handleBan(b *bot.Bot, update tgbotapi.Update, isTemporary b
 		return nil
 	}
 
-	isAdmin, err := b.IsUserAdmin(update.Message.Chat.ID, update.Message.From.ID)
-	if err != nil {
-		return fmt.Errorf("failed to check admin status: %w", err)
-	}
-
-	if !isAdmin {
+	if !isUserAuthorized(b, update.Message.Chat.ID, update.Message.From.ID) {
 		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
@@ -102,12 +97,7 @@ func (h *KickHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 		return nil
 	}
 
-	isAdmin, err := b.IsUserAdmin(update.Message.Chat.ID, update.Message.From.ID)
-	if err != nil {
-		return fmt.Errorf("failed to check admin status: %w", err)
-	}
-
-	if !isAdmin {
+	if !isUserAuthorized(b, update.Message.Chat.ID, update.Message.From.ID) {
 		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
@@ -166,12 +156,7 @@ func (h *MuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 		return nil
 	}
 
-	isAdmin, err := b.IsUserAdmin(update.Message.Chat.ID, update.Message.From.ID)
-	if err != nil {
-		return fmt.Errorf("failed to check admin status: %w", err)
-	}
-
-	if !isAdmin {
+	if !isUserAuthorized(b, update.Message.Chat.ID, update.Message.From.ID) {
 		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
@@ -343,12 +328,7 @@ func (h *DeleteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 		return nil
 	}
 
-	isAdmin, err := b.IsUserAdmin(update.Message.Chat.ID, update.Message.From.ID)
-	if err != nil {
-		return fmt.Errorf("failed to check admin status: %w", err)
-	}
-
-	if !isAdmin {
+	if !isUserAuthorized(b, update.Message.Chat.ID, update.Message.From.ID) {
 		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}
@@ -509,6 +489,27 @@ func resolveUsernameInChat(b *bot.Bot, chatID int64, username string) (int64, er
 	return 0, fmt.Errorf("Username @%s nicht gefunden. Bei großen Gruppen verwende 'Auf Nachricht antworten' oder User-ID", username)
 }
 
+// isUserAuthorized prüft ob User entweder Bot-Admin oder Gruppen-Admin ist
+func isUserAuthorized(b *bot.Bot, chatID, userID int64) bool {
+	// Prüfen ob User bereits Bot-Admin ist
+	cfg := b.GetConfig()
+	for _, adminID := range cfg.Admin.AdminUserIDs {
+		if adminID == userID {
+			return true
+		}
+	}
+
+	// Prüfen ob User Gruppen-Admin ist (nur in Gruppen, nicht in DMs)
+	if chatID < 0 { // Negative Chat-IDs sind Gruppen
+		isAdmin, err := b.IsUserAdmin(chatID, userID)
+		if err == nil && isAdmin {
+			return true
+		}
+	}
+
+	return false
+}
+
 type UnmuteHandler struct{}
 
 func NewUnmuteHandler() *UnmuteHandler {
@@ -520,12 +521,7 @@ func (h *UnmuteHandler) Handle(b *bot.Bot, update tgbotapi.Update) error {
 		return nil
 	}
 
-	isAdmin, err := b.IsUserAdmin(update.Message.Chat.ID, update.Message.From.ID)
-	if err != nil {
-		return fmt.Errorf("failed to check admin status: %w", err)
-	}
-
-	if !isAdmin {
+	if !isUserAuthorized(b, update.Message.Chat.ID, update.Message.From.ID) {
 		_, _ = b.SendTemporaryGroupMessage(update.Message.Chat.ID, "Du hast keine Berechtigung für diesen Befehl.", 5)
 		return nil
 	}

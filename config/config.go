@@ -15,14 +15,16 @@ type Config struct {
 }
 
 type CaptchaConfig struct {
-	TimeoutMinutes int    `json:"timeout_minutes"`
-	MaxAttempts    int    `json:"max_attempts"`
-	WelcomeMessage string `json:"welcome_message"`
+	TimeoutMinutes            int    `json:"timeout_minutes"`
+	MaxAttempts               int    `json:"max_attempts"`
+	WelcomeMessage            string `json:"welcome_message"`
+	MessageDeleteDelayMinutes int    `json:"message_delete_delay_minutes"`
 }
 
 type AdminConfig struct {
-	DefaultMuteHours   int `json:"default_mute_hours"`
-	MaxDeleteMessages  int `json:"max_delete_messages"`
+	DefaultMuteHours  int     `json:"default_mute_hours"`
+	MaxDeleteMessages int     `json:"max_delete_messages"`
+	AdminUserIDs      []int64 `json:"admin_user_ids"`
 }
 
 type DatabaseConfig struct {

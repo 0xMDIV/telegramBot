@@ -58,12 +58,13 @@ func (h *Handler) handleNewMember(b *bot.Bot, chatID int64, user *tgbotapi.User)
 	}
 
 	captchaKey := generateCaptcha()
+	solution, _ := solveCaptcha(captchaKey)
 
 	pendingUser := database.PendingUser{
 		UserID:     user.ID,
 		ChatID:     chatID,
 		CaptchaKey: captchaKey,
-		ExpiresAt:  time.Now().Add(time.Duration(b.GetConfig().Captcha.TimeoutMinutes) * time.Minute),
+		ExpiresAt:  time.Now().Add(time.Duration(b.GetConfig().Captcha.MessageDeleteDelayMinutes) * time.Minute),
 		Attempts:   0,
 	}
 
@@ -71,42 +72,69 @@ func (h *Handler) handleNewMember(b *bot.Bot, chatID int64, user *tgbotapi.User)
 		return fmt.Errorf("failed to add pending user: %w", err)
 	}
 
-	return h.sendCaptchaToDM(b, user, captchaKey, chatID)
+	return h.sendCaptchaToGroup(b, user, captchaKey, solution, chatID)
 }
 
-func (h *Handler) sendCaptchaToDM(b *bot.Bot, user *tgbotapi.User, captchaKey string, groupChatID int64) error {
+func (h *Handler) sendCaptchaToGroup(b *bot.Bot, user *tgbotapi.User, captchaKey string, solution int, chatID int64) error {
 	text := fmt.Sprintf(
-		"Willkommen!\n\n"+
-			"Um der Gruppe beizutreten, löse bitte das folgende Captcha:\n\n"+
-			"Berechne: %s\n\n"+
-			"Du hast %d Minuten Zeit und maximal %d Versuche.",
-		generateMathProblem(captchaKey),
-		b.GetConfig().Captcha.TimeoutMinutes,
-		b.GetConfig().Captcha.MaxAttempts,
+		"%s %s!\n\n"+
+			"Um in der Gruppe schreiben zu können, löse bitte das folgende Captcha:\n\n"+
+			"Berechne: %s = ?\n\n"+
+			"Antworte einfach mit der Zahl. Du hast %d Minuten Zeit.",
+		b.GetConfig().Captcha.WelcomeMessage,
+		bot.GetUserMention(user),
+		captchaKey,
+		b.GetConfig().Captcha.MessageDeleteDelayMinutes,
 	)
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Antwort eingeben", fmt.Sprintf("captcha_solve:%d:%s", groupChatID, captchaKey)),
-		),
-	)
-
-	_, err := b.SendMessageWithKeyboard(user.ID, text, keyboard)
+	// Willkommensnachricht mit Captcha senden
+	welcomeMsg, err := b.SendMessage(chatID, text)
 	if err != nil {
-		groupText := fmt.Sprintf(
-			"%s, ich konnte dir keine private Nachricht senden!\n\n"+
-				"Bitte starte zuerst eine Unterhaltung mit mir (@%s) und tritt dann erneut der Gruppe bei.",
-			bot.GetUserMention(user), b.GetAPI().Self.UserName,
-		)
-		_, _ = b.SendMessage(groupChatID, groupText)
-
-		b.KickChatMember(groupChatID, user.ID)
-		b.UnbanChatMember(groupChatID, user.ID)
-
-		return fmt.Errorf("could not send DM to user")
+		return fmt.Errorf("failed to send welcome message: %w", err)
 	}
 
+	// Willkommensnachricht-ID in der DB speichern für spätere Löschung
+	if err := b.GetDB().SetWelcomeMessage(user.ID, chatID, welcomeMsg.MessageID); err != nil {
+		// Fallback: Direkt Timer für Willkommensnachricht starten
+		go func() {
+			delay := time.Duration(b.GetConfig().Captcha.MessageDeleteDelayMinutes) * time.Minute
+			time.Sleep(delay)
+			b.DeleteMessage(chatID, welcomeMsg.MessageID)
+		}()
+	}
+
+	// Auto-Kick Timer starten
+	go func() {
+		delay := time.Duration(b.GetConfig().Captcha.MessageDeleteDelayMinutes) * time.Minute
+		time.Sleep(delay)
+
+		// Prüfen ob User noch pending ist
+		pendingUser, err := b.GetDB().GetPendingUser(user.ID, chatID)
+		if err == nil && pendingUser != nil {
+			// User hat Captcha nicht gelöst - kicken
+			b.KickChatMember(chatID, user.ID)
+			b.UnbanChatMember(chatID, user.ID)
+			b.GetDB().RemovePendingUser(user.ID, chatID)
+
+			// Willkommensnachricht löschen
+			b.DeleteMessage(chatID, welcomeMsg.MessageID)
+
+			// Timeout-Nachricht senden
+			timeoutMsg, _ := b.SendMessage(chatID, fmt.Sprintf(
+				"%s wurde wegen Captcha-Timeout aus der Gruppe entfernt.",
+				bot.GetUserMention(user),
+			))
+
+			// Timeout-Nachricht nach 5 Sekunden löschen
+			go func() {
+				time.Sleep(5 * time.Second)
+				b.DeleteMessage(chatID, timeoutMsg.MessageID)
+			}()
+		}
+	}()
+
 	return nil
+
 }
 
 func generateCaptcha() string {
@@ -299,7 +327,7 @@ func (h *CallbackHandler) handleCorrectAnswer(b *bot.Bot, callback *tgbotapi.Cal
 		return fmt.Errorf("failed to remove pending user: %w", err)
 	}
 
-	successText := "Glueckwunsch!\n\nDu hast das Captcha erfolgreich gelöst und wurdest zur Gruppe hinzugefügt!"
+	successText := "Glückwunsch!\n\nDu hast das Captcha erfolgreich gelöst und wurdest zur Gruppe hinzugefügt!"
 	edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, successText)
 	edit.ParseMode = "Markdown"
 	b.GetAPI().Send(edit)
@@ -312,11 +340,20 @@ func (h *CallbackHandler) handleCorrectAnswer(b *bot.Bot, callback *tgbotapi.Cal
 
 	msg, err := b.SendMessage(groupChatID, welcomeText)
 	if err == nil {
+		// Nach messageDeleteDelayMinutes löschen
 		go func() {
-			time.Sleep(10 * time.Second)
+			delay := time.Duration(b.GetConfig().Captcha.MessageDeleteDelayMinutes) * time.Minute
+			time.Sleep(delay)
 			b.DeleteMessage(groupChatID, msg.MessageID)
 		}()
 	}
+
+	// Auch die Captcha-Nachricht nach dem konfigurierten Zeitraum löschen
+	go func() {
+		delay := time.Duration(b.GetConfig().Captcha.MessageDeleteDelayMinutes) * time.Minute
+		time.Sleep(delay)
+		b.DeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+	}()
 
 	b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "✅ Captcha gelöst!"))
 	return nil
@@ -340,8 +377,15 @@ func (h *CallbackHandler) handleWrongAnswer(b *bot.Bot, callback *tgbotapi.Callb
 		edit.ParseMode = "Markdown"
 		b.GetAPI().Send(edit)
 
+		// User aus Gruppe kicken
 		b.KickChatMember(groupChatID, callback.From.ID)
 		b.UnbanChatMember(groupChatID, callback.From.ID)
+
+		// Captcha-Nachricht sofort nach Kick löschen
+		go func() {
+			time.Sleep(2 * time.Second) // Kurz warten, damit User die Nachricht sehen kann
+			b.DeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+		}()
 
 		b.GetAPI().Send(tgbotapi.NewCallback(callback.ID, "Zu viele Fehlversuche!"))
 		return nil

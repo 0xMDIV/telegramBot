@@ -124,6 +124,14 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 			return
 		}
 
+		// Zuerst Captcha-Message Handler prüfen
+		if handler, exists := b.handlers["captcha_message"]; exists {
+			if err := handler.Handle(b, update); err != nil {
+				log.Printf("Error handling captcha message: %v", err)
+			}
+		}
+
+		// Dann normalen Message Handler
 		if handler, exists := b.handlers["message"]; exists {
 			if err := handler.Handle(b, update); err != nil {
 				log.Printf("Error handling message: %v", err)
